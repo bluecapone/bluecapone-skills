@@ -16,7 +16,7 @@ This skill orchestrates a 5-phase local research pipeline using Claude Code's MC
 | Tool | Type | Invocation |
 |------|------|------------|
 | **web-search** skill | Sibling skill | `Skill(skill='web-search', args='topic')` — agy+Firecrawl ensemble, dedup, [via X] provenance tags. Replaces direct WebSearch/Firecrawl URL-discovery calls. |
-| NotebookLM | CLI (notebooklm-py) | `notebooklm create` / `source add` / `ask` via Bash — authenticated from `~/.notebooklm/` (storage_state.json). The `notebooklm` binary is on PATH. |
+| NotebookLM | CLI (`nlm`, package `notebooklm-mcp-cli`) | `nlm notebook create` / `nlm source add` / `nlm notebook query` via Bash — authenticated via `nlm login` (stored per-profile; check with `nlm login --check`). The `nlm` binary is on PATH. |
 | Context7 | Plugin (MCP) | `mcp__plugin_context7_context7__resolve-library-id`, `query-docs` |
 | Grok | Skill | `Skill(skill='grok:ask', args='...')` |
 | Firecrawl (scrape) | CLI | `firecrawl search "query" --scrape --limit N -o path --json` via Bash — used only for deep content scraping of selected URLs (Phase 2 Batch B); URL discovery goes through `web-search` skill |
@@ -124,23 +124,23 @@ Batch B (CLI tools + Fabric, after Batch A returns URLs):
 
 ### Phase 3: NotebookLM Aggregation
 
-After gathering, create a single NotebookLM notebook and load all results via the `notebooklm` CLI (notebooklm-py, authenticated from `~/.notebooklm/`). All calls run through Bash.
+After gathering, create a single NotebookLM notebook and load all results via the `nlm` CLI (`notebooklm-mcp-cli` package, authenticated via `nlm login`). All calls run through Bash.
 
 1. **Create notebook** (capture the ID from JSON output):
    ```bash
-   NB_ID=$(notebooklm create "Research: {topic} - {YYYY-MM-DD}" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['notebook']['id'])")
+   NB_ID=$(nlm notebook create "Research: {topic} - {YYYY-MM-DD}" --json | python3 -c "import sys,json; print(json.load(sys.stdin)['notebook']['id'])")
    ```
 
-2. **Add URL sources** — `source add` ingests one source per call (type auto-detected), so loop over the ranked URLs:
+2. **Add URL sources** — `source add` takes the notebook ID positionally and one or more `--url` flags (repeatable, so batch what you can into one call):
    ```bash
-   for url in {ranked_urls}; do notebooklm source add "$url" -n "$NB_ID" --type url; done
+   nlm source add "$NB_ID" --url "$url1" --url "$url2" --url "$url3" --wait
    ```
    Prioritize: `web-search` top-ranked URLs (look for [via both] tags first — those are corroborated by agy AND Firecrawl), documentation URLs, repo URLs.
    Skip: X/Twitter post URLs (NLM cannot crawl them), duplicate URLs.
 
 3. **Add text sources** — one call per gathered text blob:
    ```bash
-   notebooklm source add "{text blob}" -n "$NB_ID" --type text --title "[Source] Topic - Date"
+   nlm source add "$NB_ID" --text "{text blob}" --title "[Source] Topic - Date" --wait
    ```
 
    **Source naming convention:**
@@ -151,27 +151,23 @@ After gathering, create a single NotebookLM notebook and load all results via th
    - `[web-search] {topic} - {date}` (URL discovery output, summarized)
    - `[quick-search] {fact-question} - {date}` (if used)
 
-4. **Wait for indexing** — instead of a blind sleep, poll each source until ready (`source add --json` returns the new source ID; exit 0 = ready):
-   ```bash
-   notebooklm source wait "$SOURCE_ID" -n "$NB_ID" --timeout 120
-   ```
-   Spawn the waits in a background agent so the main conversation can continue.
+4. **Indexing** — `--wait` on `source add` itself blocks until that call's source(s) finish processing (default timeout 600s via `--wait-timeout`); there is no separate poll/wait subcommand. Run the `source add` calls in a background agent so the main conversation can continue while they block.
 
 ### Phase 4: Iterative NotebookLM Q&A
 
 Query NotebookLM for source-grounded, citation-backed synthesis. Max 5 rounds.
 
 ```bash
-notebooklm ask "..." -n "$NB_ID" --json
+nlm notebook query "$NB_ID" "..." --json
 ```
 
-`ask` continues the last conversation by default; pass `-c <conversation_id>` to continue a specific one, or `--new` to reset. `--json` returns the answer plus the source references behind each `[n]` citation.
+Each call is independent unless you pass `--conversation-id`/`-c` to continue a specific prior conversation — there is no "continues by default" or `--new` behavior; the CLI has no implicit conversation memory. `--json` returns the answer plus the source references behind each `[n]` citation.
 
 **Confidence-based loop:**
 
-1. **Round 1:** Ask the main research question — `notebooklm ask "Provide a comprehensive answer to: {original query}" -n "$NB_ID" --json`
+1. **Round 1:** Ask the main research question — `nlm notebook query "$NB_ID" "Provide a comprehensive answer to: {original query}" --json`, capture the `conversation_id` from the JSON response.
 2. **Evaluate:** Is the answer comprehensive? Are there gaps, uncovered angles, contradictions between sources?
-3. **Rounds 2-5:** Target specific gaps identified in the previous round. Since `ask` continues the last conversation automatically, just keep calling `notebooklm ask "..." -n "$NB_ID" --json` for follow-up continuity (or pin one with `-c`).
+3. **Rounds 2-5:** Target specific gaps identified in the previous round — pass the captured `conversation_id` via `-c` on each follow-up call to keep it in the same thread: `nlm notebook query "$NB_ID" "..." -c "$CONV_ID" --json`.
 4. **Stop early** if the answer is comprehensive (self-assessed) or max rounds reached.
 
 ### Phase 4b: Optional CoT follow-up via reasoned-search
@@ -224,7 +220,7 @@ Present findings in this structure:
 
 ## NotebookLM
 Notebook: "{name}" (ID: `{notebook_id}`)
-Query further with: `notebooklm ask "your question" -n {notebook_id}`
+Query further with: `nlm notebook query {notebook_id} "your question"`
 ```
 
 ## Background Mode
