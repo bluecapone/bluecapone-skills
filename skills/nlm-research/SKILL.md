@@ -95,8 +95,8 @@ Before hitting any source, classify the query to decide which sources are releva
 | General research (default) | web-search |
 
 **Rules:**
-- Always invoke the `web-search` skill as the URL-discovery backbone (it runs agy + Firecrawl in parallel internally and returns ranked URLs with provenance tags).
-- Use Firecrawl scrape (Phase 2 Batch B) only for deep-content extraction of URLs surfaced by `web-search`, when the query needs full page bodies (not just snippets).
+- Always run the "Ensemble web search recipe" (above) as the URL-discovery backbone — it runs agy + Firecrawl in parallel and returns ranked URLs with provenance tags.
+- Use Firecrawl scrape (Phase 2 Batch B) only for deep-content extraction of URLs the ensemble recipe surfaced, when the query needs full page bodies (not just snippets).
 - Tell the user which sources were selected and why before proceeding.
 - If the user passed specific sources in args (e.g., `/nlm-research "topic" sources=web-search,grok`), honor that override.
 
@@ -156,7 +156,7 @@ Batch A (sibling skills + MCP, all in one message):
 - `Skill(skill='quick-search', args='specific factual question')` — OPTIONAL, only if a small factual gap is identified mid-pipeline (e.g. "what year did X launch", "who is the current CEO of Y"). Skip if not applicable.
 
 Batch B (CLI tools + Fabric, after Batch A returns URLs):
-- `firecrawl search "QUERY" --limit 10 --scrape -o .firecrawl/search-SLUG-scraped.json --json` — OPTIONAL, scrape top URLs returned by `web-search` for deep content. Skip if `web-search` snippets already cover the topic.
+- `firecrawl search "QUERY" --limit 10 --scrape -o .firecrawl/search-SLUG-scraped.json --json` — OPTIONAL, scrape top URLs returned by the ensemble recipe for deep content. Skip if the ensemble recipe's snippets already cover the topic.
 - `fabric-ai -y "URL" --pattern extract_wisdom` per YouTube URL (max 4, skip on failure)
 - `fabric-ai -u "URL" --pattern extract_wisdom` per key article (max 3)
 
@@ -165,7 +165,7 @@ Batch B (CLI tools + Fabric, after Batch A returns URLs):
 - 1-2 sources → use direct calls (less overhead)
 
 **Failure handling:** Each source is independent. If any fails:
-- `web-search` skill: if its internal agy call fails (auth/rate-limit), the skill falls back to Firecrawl-only and warns. If both agy AND Firecrawl fail inside `web-search`, the pipeline continues with whatever else was activated (Fabric/Context7/Grok); note the degradation in the final report.
+- Ensemble web search recipe: if the agy call fails (auth/rate-limit), it falls back to Firecrawl-only and warns. If both agy AND Firecrawl fail, the pipeline continues with whatever else was activated (Fabric/Context7/Grok); note the degradation in the final report.
 - Fabric: no captions → skip with log. Try `--transcript` (no timestamps) once as fallback.
 - Context7: empty result → skip.
 - Grok: API error or missing → skip with warning.
@@ -187,7 +187,7 @@ After gathering, create a single NotebookLM notebook and load all results via th
    ```bash
    nlm source add "$NB_ID" --url "$url1" --url "$url2" --url "$url3" --wait
    ```
-   Prioritize: `web-search` top-ranked URLs (look for [via both] tags first — those are corroborated by agy AND Firecrawl), documentation URLs, repo URLs.
+   Prioritize: ensemble-recipe top-ranked URLs (look for [via both] tags first — those are corroborated by agy AND Firecrawl), documentation URLs, repo URLs.
    Skip: X/Twitter post URLs (NLM cannot crawl them), duplicate URLs.
 
 3. **Add text sources** — one call per gathered text blob:
@@ -240,7 +240,7 @@ The `reasoned-search` skill returns a step-by-step CoT with conclusion, assumpti
 
 ### Phase 4c: Fallback (if NotebookLM fails)
 
-If notebook creation or source addition fails entirely, synthesize directly from the gathered raw text (`web-search` ranked URLs + Firecrawl scraped content + Fabric wisdom outputs provide grounded raw data). Note the degradation in the report.
+If notebook creation or source addition fails entirely, synthesize directly from the gathered raw text (ensemble-recipe ranked URLs + Firecrawl scraped content + Fabric wisdom outputs provide grounded raw data). Note the degradation in the report.
 
 ### Phase 5: Deliver Report
 
