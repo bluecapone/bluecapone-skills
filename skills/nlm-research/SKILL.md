@@ -1,6 +1,6 @@
 ---
 name: nlm-research
-description: Multi-source research pipeline (personal, NotebookLM-backed) — smart source selection, parallel gathering via the `web-search` skill (agy+Firecrawl ensemble) + Context7 + Fabric + Grok, aggregates into NotebookLM, queries iteratively for source-grounded synthesis. Optional `quick-search` for mid-pipeline fact lookups and `reasoned-search` for end-pipeline chain-of-thought follow-ups. Use when the user says "research this", "investigate", "compare options", "deep dive", "what are the best options for", "quais são as melhores opções para", or types `/nlm-research "topic"`. Triggers on requests for multi-source investigation, technology comparisons, or in-depth analysis beyond a single search. Distinct from matt-pocock-skills' `research` skill (AFK wayfinder ticket resolver).
+description: Runs multi-source research (web, Context7, Fabric, Grok) into NotebookLM for grounded synthesis. Use when the user says "research this", "deep dive", or types /nlm-research.
 ---
 
 # Research :: Deep Dive
@@ -11,18 +11,70 @@ Trigger this skill when the user says: "research this", "investigate", "compare 
 
 This skill orchestrates a 5-phase local research pipeline using Claude Code's MCP tools and CLI commands. No external workflow engine required — everything runs locally.
 
+## Prerequisites
+
+- **agy** (Antigravity CLI), authenticated — powers the ensemble URL discovery below.
+- **Firecrawl CLI** (`firecrawl`), `FIRECRAWL_API_KEY` set (`firecrawl config` or `FIRECRAWL_API_KEY` env var) — URL discovery + Phase 2 Batch B deep scrapes.
+- **jq** — used by `scripts/merge-results.sh` to dedupe/merge search results.
+- **NotebookLM CLI** (`nlm`, package `notebooklm-mcp-cli`), authenticated via `nlm login` — Phase 3/4 aggregation and query.
+- **Fabric** (`fabric-ai`) — YouTube/article wisdom extraction. Skipped gracefully if missing.
+- **Context7** MCP plugin, **Grok** skill/tool — both optional, skipped gracefully if unreachable.
+- **`quick-search`** and **`reasoned-search`** sibling skills — optional, used only if separately installed; every call-site already degrades gracefully when they're absent (see Phase 2/4b).
+
+See the README's Setup section for install commands.
+
 ## Tool Inventory
 
 | Tool | Type | Invocation |
 |------|------|------------|
-| **web-search** skill | Sibling skill | `Skill(skill='web-search', args='topic')` — agy+Firecrawl ensemble, dedup, [via X] provenance tags. Replaces direct WebSearch/Firecrawl URL-discovery calls. |
+| **Web search (ensemble)** | Inlined recipe (agy + Firecrawl, parallel) | See "Ensemble web search recipe" below — runs agy + Firecrawl in parallel, dedupes by canonical URL via `scripts/merge-results.sh`, tags provenance `[via agy]`/`[via Firecrawl]`/`[via both]`. No external skill call. |
 | NotebookLM | CLI (`nlm`, package `notebooklm-mcp-cli`) | `nlm notebook create` / `nlm source add` / `nlm notebook query` via Bash — authenticated via `nlm login` (stored per-profile; check with `nlm login --check`). The `nlm` binary is on PATH. |
 | Context7 | Plugin (MCP) | `mcp__plugin_context7_context7__resolve-library-id`, `query-docs` |
 | Grok | Skill | `Skill(skill='grok:ask', args='...')` |
-| Firecrawl (scrape) | CLI | `firecrawl search "query" --scrape --limit N -o path --json` via Bash — used only for deep content scraping of selected URLs (Phase 2 Batch B); URL discovery goes through `web-search` skill |
+| Firecrawl (scrape) | CLI | `firecrawl search "query" --scrape --limit N -o path --json` via Bash — used only for deep content scraping of selected URLs (Phase 2 Batch B); URL discovery goes through the inlined ensemble recipe |
 | Fabric | CLI | `fabric-ai -y "URL" --pattern extract_wisdom` via Bash |
 | **quick-search** skill | Sibling skill (optional) | `Skill(skill='quick-search', args='specific factual question')` — mid-pipeline fact gap fill |
 | **reasoned-search** skill | Sibling skill (optional) | `Skill(skill='reasoned-search', args='reasoning question grounded in sources')` — Phase 4 CoT follow-up |
+
+## Ensemble web search recipe
+
+Formerly delegated to a separate `web-search` sibling skill; inlined here so
+`nlm-research` has no hard external-skill dependency. Run BOTH commands **in
+parallel** (single message, two Bash tool calls), unique `$PID` suffix to
+avoid file collisions:
+
+```bash
+# Call A — agy (Antigravity CLI, Gemini-backed). Pin a FAST model, cap with agy's
+# NATIVE --print-timeout, fall back to an empty array so a slow agy never blocks
+# the pipeline (Firecrawl is the baseline).
+agy -p "List 8-12 ranked URLs for: '$QUERY'. For each, return JSON with fields: title, url, snippet, date_published (if known). Return as JSON array. Do NOT synthesize, do NOT add commentary. Output ONLY the JSON array, no markdown fences." \
+  --model "Gemini 3.5 Flash (Low)" --print-timeout 90s > /tmp/ws-$$-agy.json 2>/dev/null || echo "[]" > /tmp/ws-$$-agy.json
+
+# Call B — Firecrawl (curated AI index + scrape)
+firecrawl search "$QUERY" --limit 10 -o /tmp/ws-$$-firecrawl.json --json
+```
+
+Key gotchas (verified live on agy v1.0.6): no `-o json` flag on agy — the
+JSON comes from the prompt, strip stray markdown fences before parsing;
+read-only search/grounding tools auto-run in agy print mode, no approval
+prompt; use agy's native `--print-timeout` (default 5m) instead of an
+external `timeout` wrapper, keeping the command starting with `agy -p` so it
+matches the `Bash(agy -p:*)` permission rule.
+
+Merge the two outputs with the bundled script (dedupe by canonical URL,
+`[via both]`/`[via agy]`/`[via Firecrawl]` provenance tags, corroborated
+results ranked first):
+
+```bash
+bash "$SKILL_DIR/scripts/merge-results.sh" /tmp/ws-$$-agy.json /tmp/ws-$$-firecrawl.json
+```
+
+**Error handling:** both providers fail → stop, report clearly, do NOT
+fabricate URLs. One provider fails → continue with the survivor, prefix
+output with a one-line warning (e.g. `> Note: agy failed (reason); results
+from Firecrawl only.`). Empty results from both → report "no results", no
+fabrication.
+
 
 ## Workflow
 
@@ -59,9 +111,9 @@ Launch up to 3 background agents, each responsible for a group of sources:
 ```
 Agent(
   name="research-web",
-  description="Web research gathering via web-search skill",
+  description="Web research gathering via inlined ensemble recipe",
   run_in_background=true,
-  prompt="Research '{topic}'. Invoke the `web-search` skill on '{topic}' — the skill internally runs agy + Firecrawl in parallel, dedupes by canonical URL, and returns ranked URLs tagged with [via agy], [via Firecrawl], or [via both]. The skill recipe lives at plugins/web-search/skills/web-search/SKILL.md.
+  prompt="Research '{topic}'. Run the ensemble web search recipe on '{topic}': agy + Firecrawl in parallel (see the parent skill's 'Ensemble web search recipe' section for the exact commands), dedupe by canonical URL via scripts/merge-results.sh, tag provenance [via agy]/[via Firecrawl]/[via both].
     Return: the full ranked URL list with titles, snippets, dates, and provenance tags. Do NOT synthesize."
 )
 
@@ -98,7 +150,7 @@ Continue to Phase 3 once all agents have returned (or after 3 minutes, proceedin
 For simpler queries where spawning agents is overhead, fall back to direct tool calls in the main conversation:
 
 Batch A (sibling skills + MCP, all in one message):
-- `Skill(skill='web-search', args='topic')` — agy+Firecrawl ensemble for URL discovery and snippets (replaces ad-hoc WebSearch/Firecrawl calls; `web-search` does both internally)
+- Run the "Ensemble web search recipe" above (agy + Firecrawl in parallel + `merge-results.sh`) for URL discovery and snippets — replaces ad-hoc WebSearch/Firecrawl calls, no external skill invocation
 - `mcp__plugin_context7_context7__resolve-library-id` + `query-docs` — if library detected
 - `Skill(skill='grok:ask')` — if social/current signal
 - `Skill(skill='quick-search', args='specific factual question')` — OPTIONAL, only if a small factual gap is identified mid-pipeline (e.g. "what year did X launch", "who is the current CEO of Y"). Skip if not applicable.
@@ -246,8 +298,8 @@ If the user says "run in background", "continue as agent", "finish this autonomo
 ## Notes
 
 - All orchestration runs locally — no external workflow engine needed.
-- This skill **composes** three sibling skills as building blocks: `web-search` (URL discovery backbone, Phase 2), `quick-search` (optional mid-pipeline fact lookups, Phase 2), `reasoned-search` (optional CoT follow-ups, Phase 4b). Improvements to those siblings propagate automatically.
-- **Agent-agnostic composition:** the `Skill(skill='X', args='...')` syntax works in Claude Code natively; in agy (Antigravity CLI) the equivalent skill invocation is used; in Codex the recipe is followed manually via `codex exec` (see each sibling skill's SKILL.md "Cross-agent usage" section).
+- Web search (URL discovery, Phase 2) is **inlined** directly in this skill (agy+Firecrawl ensemble, see "Ensemble web search recipe") — no external skill dependency. `quick-search` (optional mid-pipeline fact lookups, Phase 2) and `reasoned-search` (optional CoT follow-ups, Phase 4b) remain optional sibling skills; both are unpublished, and every call-site already degrades gracefully (skips) if they're not separately installed.
+- **Agent-agnostic composition:** the `Skill(skill='X', args='...')` syntax works in Claude Code natively for the remaining optional siblings; in agy (Antigravity CLI) the equivalent skill invocation is used; in Codex, invoke manually via `codex exec`.
 - NotebookLM aggregation provides source-grounded citations that raw synthesis cannot match.
 - Fabric outputs are also saved locally to `~/fabric-output/` for future reference.
 - Firecrawl scrape outputs are saved to `.firecrawl/` in the current working directory.

@@ -25,12 +25,17 @@ Run these after `npx skills add`, before first use:
    nlm login                            # opens a browser-based Google auth flow
    nlm login --check                    # verify auth landed
    ```
-2. **Firecrawl CLI** (deep-content scraping, Phase 2 Batch B):
+2. **agy** (Antigravity CLI, ensemble web-search URL discovery — Phase 2), authenticated:
+   ```bash
+   # install per https://antigravity.google/ — verify with:
+   agy -p "test" --model "Gemini 3.5 Flash (Low)" --print-timeout 30s
+   ```
+3. **Firecrawl CLI** (paired with agy for ensemble URL discovery, plus deep-content scraping in Phase 2 Batch B):
    ```bash
    npm install -g firecrawl-cli   # or: npx firecrawl <command> per-invocation
    firecrawl config               # set FIRECRAWL_API_KEY
    ```
-3. **Fabric** (`fabric-ai`, YouTube/article wisdom extraction):
+4. **Fabric** (`fabric-ai`, YouTube/article wisdom extraction):
    ```bash
    go install github.com/danielmiessler/fabric/cmd/fabric@latest
    fabric --setup   # configure an LLM vendor + API key
@@ -38,26 +43,34 @@ Run these after `npx skills add`, before first use:
    `go install` names the binary `fabric`; this skill calls it as
    `fabric-ai` (to avoid clashing with other tools named `fabric` on
    `PATH`) — alias or symlink it: `ln -s "$(command -v fabric)" ~/go/bin/fabric-ai`.
-4. **Context7** — MCP server/plugin providing
+5. **Context7** — MCP server/plugin providing
    `mcp__*context7__resolve-library-id` / `query-docs`. Configure per your
    agent's MCP setup; this skill assumes it's already reachable and skips
    it (not an error) if the tools aren't present.
-5. **Grok** — a `grok:ask` skill/tool your agent exposes for X/current-events
+6. **Grok** — a `grok:ask` skill/tool your agent exposes for X/current-events
    queries. Optional; skipped if unavailable.
 
-## Known limitation: sibling skill dependencies aren't published yet
+## Optional sibling skills (unpublished)
 
-This skill composes three sibling skills as building blocks — **`web-search`**
-(required, the URL-discovery backbone for Phase 2), **`quick-search`** and
-**`reasoned-search`** (both optional). None of the three are published to a
-public repo yet, so `npx skills add` can't fetch them for you. Until they
-are, `nlm-research` will fail on any step that invokes
-`Skill(skill='web-search', ...)` unless you separately install an
-equivalent URL-discovery skill under that name, or patch Phase 2 in
-`skills/nlm-research/SKILL.md` to call whatever web-search tool your agent
-already has.
+`web-search` (the required URL-discovery backbone) is **inlined directly**
+into `skills/nlm-research/SKILL.md` (agy + Firecrawl ensemble via
+`scripts/merge-results.sh`) — no external skill dependency for it anymore.
+Two genuinely optional siblings remain unpublished:
+**`quick-search`** (mid-pipeline fact lookups) and **`reasoned-search`**
+(chain-of-thought follow-ups). Every call-site that uses them already
+skips gracefully if they aren't separately installed — install them
+yourself if you want that extra functionality; `nlm-research` works fully
+without them.
 
 ## Skill
 
 - [`skills/nlm-research/SKILL.md`](skills/nlm-research/SKILL.md) — the skill definition
 - [`skills/nlm-research/scripts/nlm-query.sh`](skills/nlm-research/scripts/nlm-query.sh) — `nlm` CLI wrapper used by the pipeline
+- [`skills/nlm-research/scripts/merge-results.sh`](skills/nlm-research/scripts/merge-results.sh) — dedupes/merges the inlined ensemble web-search results
+
+## Quality checks
+
+```bash
+scripts/lint-skill.sh   # validates SKILL.md frontmatter (name/description) against the spec
+```
+
