@@ -19,7 +19,6 @@ This skill orchestrates a 5-phase local research pipeline using Claude Code's MC
 - **NotebookLM CLI** (`nlm`, package `notebooklm-mcp-cli`), authenticated via `nlm login` — Phase 3/4 aggregation and query.
 - **Fabric** (`fabric-ai`) — YouTube/article wisdom extraction. Skipped gracefully if missing.
 - **Context7** MCP plugin, **Grok** skill/tool — both optional, skipped gracefully if unreachable.
-- **`quick-search`** and **`reasoned-search`** sibling skills — optional, used only if separately installed; every call-site already degrades gracefully when they're absent (see Phase 2/4b).
 
 See the README's Setup section for install commands.
 
@@ -33,8 +32,6 @@ See the README's Setup section for install commands.
 | Grok | Skill | `Skill(skill='grok:ask', args='...')` |
 | Firecrawl (scrape) | CLI | `firecrawl search "query" --scrape --limit N -o path --json` via Bash — used only for deep content scraping of selected URLs (Phase 2 Batch B); URL discovery goes through the inlined ensemble recipe |
 | Fabric | CLI | `fabric-ai -y "URL" --pattern extract_wisdom` via Bash |
-| **quick-search** skill | Sibling skill (optional) | `Skill(skill='quick-search', args='specific factual question')` — mid-pipeline fact gap fill |
-| **reasoned-search** skill | Sibling skill (optional) | `Skill(skill='reasoned-search', args='reasoning question grounded in sources')` — Phase 4 CoT follow-up |
 
 ## Ensemble web search recipe
 
@@ -153,7 +150,6 @@ Batch A (sibling skills + MCP, all in one message):
 - Run the "Ensemble web search recipe" above (agy + Firecrawl in parallel + `merge-results.sh`) for URL discovery and snippets — replaces ad-hoc WebSearch/Firecrawl calls, no external skill invocation
 - `mcp__plugin_context7_context7__resolve-library-id` + `query-docs` — if library detected
 - `Skill(skill='grok:ask')` — if social/current signal
-- `Skill(skill='quick-search', args='specific factual question')` — OPTIONAL, only if a small factual gap is identified mid-pipeline (e.g. "what year did X launch", "who is the current CEO of Y"). Skip if not applicable.
 
 Batch B (CLI tools + Fabric, after Batch A returns URLs):
 - `firecrawl search "QUERY" --limit 10 --scrape -o .firecrawl/search-SLUG-scraped.json --json` — OPTIONAL, scrape top URLs returned by the ensemble recipe for deep content. Skip if the ensemble recipe's snippets already cover the topic.
@@ -170,7 +166,6 @@ Batch B (CLI tools + Fabric, after Batch A returns URLs):
 - Context7: empty result → skip.
 - Grok: API error or missing → skip with warning.
 - Firecrawl scrape (Batch B): timeout → skip.
-- `quick-search` skill: if its agy call fails → skip the optional fact-lookup; the missing fact gets flagged in the report's "manual verification needed" section.
 - Agent doesn't return within 3 min → proceed without it.
 - The pipeline NEVER halts on a single source failure.
 
@@ -201,7 +196,6 @@ After gathering, create a single NotebookLM notebook and load all results via th
    - `[Fabric-YT] {video title} - {date}`
    - `[Firecrawl-scrape] {topic} - {date}` (only for Batch B deep scrapes)
    - `[web-search] {topic} - {date}` (URL discovery output, summarized)
-   - `[quick-search] {fact-question} - {date}` (if used)
 
 4. **Indexing** — `--wait` on `source add` itself blocks until that call's source(s) finish processing (default timeout 600s via `--wait-timeout`); there is no separate poll/wait subcommand. Run the `source add` calls in a background agent so the main conversation can continue while they block.
 
@@ -222,23 +216,7 @@ Each call is independent unless you pass `--conversation-id`/`-c` to continue a 
 3. **Rounds 2-5:** Target specific gaps identified in the previous round — pass the captured `conversation_id` via `-c` on each follow-up call to keep it in the same thread: `nlm notebook query "$NB_ID" "..." -c "$CONV_ID" --json`.
 4. **Stop early** if the answer is comprehensive (self-assessed) or max rounds reached.
 
-### Phase 4b: Optional CoT follow-up via reasoned-search
-
-After the NotebookLM rounds, if a reasoning question emerges that needs **explicit chain-of-thought** rather than corpus synthesis (math/logic/comparison), invoke:
-
-```
-Skill(skill='reasoned-search', args='reasoning question grounded in the gathered sources')
-```
-
-The `reasoned-search` skill returns a step-by-step CoT with conclusion, assumptions, manual-verification list, and citations. Use when:
-
-- NotebookLM answered correctly but the **reasoning path** matters (e.g. "show the math behind X").
-- Multiple sources disagree and you want a structured comparison with explicit weighing.
-- The deliverable needs visible logic (e.g. user is preparing an argument or a memo).
-
-**Budget:** 1–2 `reasoned-search` invocations per pipeline. It's the most expensive step (Codex o3 — $0.04+ and 15-60s latency).
-
-### Phase 4c: Fallback (if NotebookLM fails)
+### Phase 4b: Fallback (if NotebookLM fails)
 
 If notebook creation or source addition fails entirely, synthesize directly from the gathered raw text (ensemble-recipe ranked URLs + Firecrawl scraped content + Fabric wisdom outputs provide grounded raw data). Note the degradation in the report.
 
@@ -261,8 +239,6 @@ Present findings in this structure:
 | Grok/X | success/skipped | {contribution} |
 | Firecrawl scrape ({N} pages) | success/skipped | {deep content from selected URLs, if Batch B ran} |
 | Fabric ({N} videos/articles) | partial/success/skipped | {contribution} |
-| quick-search ({N} lookups) | success/skipped | {fact gaps filled, if any} |
-| reasoned-search ({N} invocations) | success/skipped | {CoT follow-ups, if any} |
 
 ## URLs Discovered
 - [{title}]({url}) (from {source})
@@ -298,8 +274,7 @@ If the user says "run in background", "continue as agent", "finish this autonomo
 ## Notes
 
 - All orchestration runs locally — no external workflow engine needed.
-- Web search (URL discovery, Phase 2) is **inlined** directly in this skill (agy+Firecrawl ensemble, see "Ensemble web search recipe") — no external skill dependency. `quick-search` (optional mid-pipeline fact lookups, Phase 2) and `reasoned-search` (optional CoT follow-ups, Phase 4b) remain optional sibling skills; both are unpublished, and every call-site already degrades gracefully (skips) if they're not separately installed.
-- **Agent-agnostic composition:** the `Skill(skill='X', args='...')` syntax works in Claude Code natively for the remaining optional siblings; in agy (Antigravity CLI) the equivalent skill invocation is used; in Codex, invoke manually via `codex exec`.
+- Web search (URL discovery, Phase 2) is **inlined** directly in this skill (agy+Firecrawl ensemble, see "Ensemble web search recipe") — no external skill dependency.
 - NotebookLM aggregation provides source-grounded citations that raw synthesis cannot match.
 - Fabric outputs are also saved locally to `~/fabric-output/` for future reference.
 - Firecrawl scrape outputs are saved to `.firecrawl/` in the current working directory.

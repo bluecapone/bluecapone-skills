@@ -50,17 +50,12 @@ Run these after `npx skills add`, before first use:
 6. **Grok** — a `grok:ask` skill/tool your agent exposes for X/current-events
    queries. Optional; skipped if unavailable.
 
-## Optional sibling skills (unpublished)
+## No external skill dependencies
 
-`web-search` (the required URL-discovery backbone) is **inlined directly**
-into `skills/nlm-research/SKILL.md` (agy + Firecrawl ensemble via
-`scripts/merge-results.sh`) — no external skill dependency for it anymore.
-Two genuinely optional siblings remain unpublished:
-**`quick-search`** (mid-pipeline fact lookups) and **`reasoned-search`**
-(chain-of-thought follow-ups). Every call-site that uses them already
-skips gracefully if they aren't separately installed — install them
-yourself if you want that extra functionality; `nlm-research` works fully
-without them.
+`web-search` (URL discovery) is **inlined directly** into
+`skills/nlm-research/SKILL.md` (agy + Firecrawl ensemble via
+`scripts/merge-results.sh`) — no external skill call for it. This pipeline
+has no sibling-skill dependencies of any kind.
 
 ## Skill
 
