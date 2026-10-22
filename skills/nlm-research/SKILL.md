@@ -15,7 +15,7 @@ This skill orchestrates a 5-phase local research pipeline using Claude Code's MC
 
 - **agy** (Antigravity CLI), authenticated — powers the ensemble URL discovery below.
 - **Firecrawl CLI** (`firecrawl`), `FIRECRAWL_API_KEY` set (`firecrawl config` or `FIRECRAWL_API_KEY` env var) — URL discovery + Phase 2 Batch B deep scrapes.
-- **jq** — used by `scripts/merge-results.sh` to dedupe/merge search results.
+- **python3** — used by `scripts/merge-results.sh` to dedupe/merge search results. **jq** — used by `scripts/nlm-query.sh` to extract the answer.
 - **NotebookLM CLI** (`nlm`, package `notebooklm-mcp-cli`), authenticated via `nlm login` — Phase 3/4 aggregation and query.
 - **Fabric** (`fabric-ai`) — YouTube/article wisdom extraction. Skipped gracefully if missing.
 - **Context7** MCP plugin, **Grok** skill/tool — both optional, skipped gracefully if unreachable.
@@ -44,19 +44,26 @@ avoid file collisions:
 # Call A — agy (Antigravity CLI, Gemini-backed). Pin a FAST model, cap with agy's
 # NATIVE --print-timeout, fall back to an empty array so a slow agy never blocks
 # the pipeline (Firecrawl is the baseline).
-agy -p "List 8-12 ranked URLs for: '$QUERY'. For each, return JSON with fields: title, url, snippet, date_published (if known). Return as JSON array. Do NOT synthesize, do NOT add commentary. Output ONLY the JSON array, no markdown fences." \
-  --model "Gemini 3.5 Flash (Low)" --print-timeout 90s > /tmp/ws-$$-agy.json 2>/dev/null || echo "[]" > /tmp/ws-$$-agy.json
+agy -p "List 8-12 ranked URLs for: '$QUERY'. For each, return JSON with fields: title, url, snippet, date_published (if known). Return as JSON array. Use only your built-in web search, at most 3 searches; do NOT run shell commands. Do NOT synthesize, do NOT add commentary. Output ONLY the JSON array, no markdown fences." \
+  --model "Gemini 3.8 Flash (Low)" --print-timeout 90s > /tmp/ws-$$-agy.json 2>/dev/null || echo "[]" > /tmp/ws-$$-agy.json
 
 # Call B — Firecrawl (curated AI index + scrape)
 firecrawl search "$QUERY" --limit 10 -o /tmp/ws-$$-firecrawl.json --json
 ```
 
-Key gotchas (verified live on agy v1.0.6): no `-o json` flag on agy — the
+Key gotchas (verified live on agy v1.4.3): no `-o json` flag on agy — the
 JSON comes from the prompt, strip stray markdown fences before parsing;
 read-only search/grounding tools auto-run in agy print mode, no approval
-prompt; use agy's native `--print-timeout` (default 5m) instead of an
-external `timeout` wrapper, keeping the command starting with `agy -p` so it
-matches the `Bash(agy -p:*)` permission rule.
+prompt, but a shell `command` tool is auto-denied in headless mode and agy
+then exits 0 with empty stdout, hence the "do NOT run shell commands" line
+(empty output merges as zero agy results; report it as an agy failure).
+Without the "at most 3 searches" cap, research-shaped queries ran ~19
+searches (176 s) and hit the 90 s timeout with empty output. Model names
+change between agy releases: if `--model` is rejected, pick the current
+Flash (Low) name from `agy models`. Use agy's native `--print-timeout`
+(default 0 = no limit) instead of an external `timeout` wrapper, keeping
+the command starting with `agy -p` so it matches the `Bash(agy -p:*)`
+permission rule.
 
 Merge the two outputs with the bundled script (dedupe by canonical URL,
 `[via both]`/`[via agy]`/`[via Firecrawl]` provenance tags, corroborated

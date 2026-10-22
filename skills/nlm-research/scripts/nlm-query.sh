@@ -31,7 +31,7 @@ case "$CMD" in
     fi
     NOTEBOOK="$1"
     QUESTION="$2"
-    nlm notebook query "$NOTEBOOK" "$QUESTION" 2>/dev/null | jq -r '.value.answer // .' 2>/dev/null || nlm notebook query "$NOTEBOOK" "$QUESTION"
+    nlm notebook query "$NOTEBOOK" "$QUESTION" 2>/dev/null | jq -r '.answer // .value.answer // .' 2>/dev/null || nlm notebook query "$NOTEBOOK" "$QUESTION"
     ;;
   add)
     if [ $# -lt 1 ]; then

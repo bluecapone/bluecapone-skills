@@ -73,6 +73,8 @@ bash "$SKILL_DIR/scripts/sp-api.sh" POST /tasks '{"title":"Buy groceries","proje
 | `includeDone` | boolean | Include completed tasks (default `false`) |
 | `source` | `active` \| `archived` \| `all` | Default `active` |
 
+Archiving marks a task done. List archived tasks with `source=archived&includeDone=true`; without `includeDone` the result is empty. While archived, `GET /tasks/:id`, `PATCH` and `DELETE` return `TASK_NOT_FOUND`; `restore` it first.
+
 ### `GET /focus`
 
 Returns `mode` (`Flowtime` \| `Pomodoro` \| `Countdown`), `cycle`, `isSessionDone`, and `timer` (`null` when no timer exists, else `purpose`, `status` `running`\|`paused`\|`done`, `isOvertime`, `isLongBreak`, `elapsedMs`, `remainingMs`, `durationMs`). It exposes no task content and no controls.
