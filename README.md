@@ -1,23 +1,46 @@
-# nlm-research
+# bluecapone-skills
 
-Multi-source research pipeline skill for AI coding agents — smart source
-selection, parallel gathering across web search, Context7, Firecrawl,
-Fabric, and Grok/X, aggregated into NotebookLM, queried iteratively for
-source-grounded synthesis. All local — no external workflow engine.
+Agent skills by bluecapone. This repo is both a Claude Code plugin
+marketplace (one plugin per skill) and an `npx skills` source.
 
 ## Install
 
+**npx skills** (any supported agent):
+
 ```bash
-npx skills add bluecapone/nlm-research
+npx skills add bluecapone/bluecapone-skills                        # all skills
+npx skills add bluecapone/bluecapone-skills -s nlm-research        # one skill
+npx skills add bluecapone/bluecapone-skills -s super-productivity
 ```
 
-`npx skills` only copies/symlinks the skill's files (`SKILL.md` + scripts)
-into your agent's skill directory — it has **no** postinstall/setup hook or
-dependency resolver. Everything below is manual, one-time, per machine.
+`npx skills` only copies/symlinks each skill's files (`SKILL.md` + scripts)
+into your agent's skill directory. It has **no** postinstall/setup hook or
+dependency resolver; per-skill setup below is manual, one-time, per machine.
 
-## Setup
+**Claude Code** plugin marketplace:
 
-Run these after `npx skills add`, before first use:
+```text
+/plugin marketplace add bluecapone/bluecapone-skills
+/plugin install nlm-research@bluecapone-skills
+/plugin install super-productivity@bluecapone-skills
+```
+
+## Skills
+
+### nlm-research
+
+Multi-source research pipeline: smart source selection, parallel gathering
+across web search, Context7, Firecrawl, Fabric, and Grok/X, aggregated into
+NotebookLM, queried iteratively for source-grounded synthesis. All local, no
+external workflow engine.
+
+- [`skills/nlm-research/SKILL.md`](skills/nlm-research/SKILL.md): the skill definition
+- [`skills/nlm-research/scripts/nlm-query.sh`](skills/nlm-research/scripts/nlm-query.sh): `nlm` CLI wrapper used by the pipeline
+- [`skills/nlm-research/scripts/merge-results.sh`](skills/nlm-research/scripts/merge-results.sh): dedupes/merges the inlined ensemble web-search results
+
+#### Setup
+
+Run these after installing, before first use:
 
 1. **NotebookLM CLI** (`nlm`, aggregation phase — Phase 3/4):
    ```bash
@@ -50,22 +73,32 @@ Run these after `npx skills add`, before first use:
 6. **Grok** — a `grok:ask` skill/tool your agent exposes for X/current-events
    queries. Optional; skipped if unavailable.
 
-## No external skill dependencies
+#### No external skill dependencies
 
 `web-search` (URL discovery) is **inlined directly** into
 `skills/nlm-research/SKILL.md` (agy + Firecrawl ensemble via
 `scripts/merge-results.sh`) — no external skill call for it. This pipeline
 has no sibling-skill dependencies of any kind.
 
-## Skill
+### super-productivity
 
-- [`skills/nlm-research/SKILL.md`](skills/nlm-research/SKILL.md) — the skill definition
-- [`skills/nlm-research/scripts/nlm-query.sh`](skills/nlm-research/scripts/nlm-query.sh) — `nlm` CLI wrapper used by the pipeline
-- [`skills/nlm-research/scripts/merge-results.sh`](skills/nlm-research/scripts/merge-results.sh) — dedupes/merges the inlined ensemble web-search results
+Read and control a running [Super Productivity](https://super-productivity.com/)
+desktop app through its Local REST API on `127.0.0.1:3876`: tasks, current
+task, Focus Mode state, projects, and tags.
+
+Requirements:
+
+- Super Productivity desktop (Electron) app, running.
+- **Settings → Misc → Enable local REST API** turned on. The app writes the
+  per-device token to `local-rest-api-token` in its user data folder; the
+  bundled helper reads it from there.
+- `bash` and `curl` ≥ 7.55.
+
+See [`skills/super-productivity/SKILL.md`](skills/super-productivity/SKILL.md)
+and [`skills/super-productivity/scripts/sp-api.sh`](skills/super-productivity/scripts/sp-api.sh).
 
 ## Quality checks
 
 ```bash
 scripts/lint-skill.sh   # validates SKILL.md frontmatter (name/description) against the spec
 ```
-

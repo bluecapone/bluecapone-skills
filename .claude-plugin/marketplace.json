@@ -1,0 +1,24 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "bluecapone-skills",
+  "description": "bluecapone's agent skills for Claude Code and npx skills.",
+  "owner": { "name": "bluecapone", "url": "https://github.com/bluecapone" },
+  "plugins": [
+    {
+      "name": "nlm-research",
+      "description": "Multi-source research pipeline (web, Context7, Firecrawl, Fabric, Grok) aggregated into NotebookLM for source-grounded synthesis.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/nlm-research"],
+      "category": "research"
+    },
+    {
+      "name": "super-productivity",
+      "description": "Read and control a running Super Productivity desktop app (tasks, current task, focus, projects, tags) through its Local REST API.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/super-productivity"],
+      "category": "productivity"
+    }
+  ]
+}
