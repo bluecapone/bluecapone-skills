@@ -96,6 +96,16 @@ CATEGORY_OVERRIDES: dict[str, str] = {
     "herdrdev/herdr:herdr": "Integrations & tools",
     "herdrdev/herdr:herdr-throwaway-repro": "Integrations & tools",
     "herdrdev/herdr:triage": "Planning & requirements",
+    "garrytan/gstack:open-gstack-browser": "Integrations & tools",
+    "garrytan/gstack:browse": "Integrations & tools",
+    "garrytan/gstack:setup-browser-cookies": "Integrations & tools",
+    "garrytan/gstack:ubicloud": "Integrations & tools",
+    "garrytan/gstack:careful": "Agent workflow & meta",
+    "garrytan/gstack:freeze": "Agent workflow & meta",
+    "garrytan/gstack:unfreeze": "Agent workflow & meta",
+    "garrytan/gstack:document-release": "Docs & writing",
+    "garrytan/gstack:gstack-openclaw-retro": "Other",
+    "addyosmani/agent-skills:deprecation-and-migration": "Architecture & design",
 }
 
 GITHUB_RE = re.compile(r"^(?:https://github\.com/|git@github\.com:)([^/\s]+)/([^/\s]+?)(?:\.git)?/?$")
