@@ -11,6 +11,7 @@ marketplace (one plugin per skill) and an `npx skills` source.
 npx skills add bluecapone/bluecapone-skills                        # all skills
 npx skills add bluecapone/bluecapone-skills -s nlm-research        # one skill
 npx skills add bluecapone/bluecapone-skills -s super-productivity
+npx skills add bluecapone/bluecapone-skills -s what-skill
 ```
 
 `npx skills` only copies/symlinks each skill's files (`SKILL.md` + scripts)
@@ -23,6 +24,7 @@ dependency resolver; per-skill setup below is manual, one-time, per machine.
 /plugin marketplace add bluecapone/bluecapone-skills
 /plugin install nlm-research@bluecapone-skills
 /plugin install super-productivity@bluecapone-skills
+/plugin install what-skill@bluecapone-skills
 ```
 
 ## Skills
@@ -96,6 +98,19 @@ Requirements:
 
 See [`skills/super-productivity/SKILL.md`](skills/super-productivity/SKILL.md)
 and [`skills/super-productivity/scripts/sp-api.sh`](skills/super-productivity/scripts/sp-api.sh).
+
+### what-skill
+
+Recommends which agent skill to use for a task and gives the exact install
+command. It reads a generated catalog of public skills plus a cited comparison
+of the Pocock, Osmani, pstack, gstack and superpowers packs.
+
+- [`skills/what-skill/SKILL.md`](skills/what-skill/SKILL.md): the skill definition
+- [`skills/what-skill/scripts/build-catalog.py`](skills/what-skill/scripts/build-catalog.py): regenerates the catalog from local clones
+- [`skills/what-skill/references/`](skills/what-skill/references/): `catalog.md` (generated) and `packs.md` (pack comparison)
+
+Setup: none to use it. Refreshing the catalog needs `python3`, the local
+clones, and network access (each source is checked to be public on GitHub).
 
 ## Quality checks
 

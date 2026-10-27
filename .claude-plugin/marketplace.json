@@ -19,6 +19,14 @@
       "strict": false,
       "skills": ["./skills/super-productivity"],
       "category": "productivity"
+    },
+    {
+      "name": "what-skill",
+      "description": "Recommend which agent skill to use for a task (Pocock, Osmani, pstack, gstack, superpowers and more) and print the exact install command.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/what-skill"],
+      "category": "productivity"
     }
   ]
 }
