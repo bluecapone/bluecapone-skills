@@ -101,9 +101,9 @@ and [`skills/super-productivity/scripts/sp-api.sh`](skills/super-productivity/sc
 
 ### what-skill
 
-Recommends which agent skill to use for a task and gives the exact install
-command. It reads a generated catalog of public skills plus a cited comparison
-of the Pocock, Osmani, pstack, gstack and superpowers packs.
+Recommends which skill from the five software-development packs (Matt Pocock
+skills, Addy Osmani agent-skills, pstack, gstack, superpowers) fits a coding
+task, and gives the exact install command. Other skills go to `find-skills`.
 
 - [`skills/what-skill/SKILL.md`](skills/what-skill/SKILL.md): the skill definition
 - [`skills/what-skill/scripts/build-catalog.py`](skills/what-skill/scripts/build-catalog.py): regenerates the catalog from local clones

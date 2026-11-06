@@ -22,7 +22,7 @@
     },
     {
       "name": "what-skill",
-      "description": "Recommend which agent skill to use for a task (Pocock, Osmani, pstack, gstack, superpowers and more) and print the exact install command.",
+      "description": "Recommend which skill from the five software-development packs (Pocock, Osmani, pstack, gstack, superpowers) fits a coding task and print the exact install command.",
       "source": "./",
       "strict": false,
       "skills": ["./skills/what-skill"],

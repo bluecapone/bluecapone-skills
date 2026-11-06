@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Build references/catalog.md: every publicly installable SKILL.md under a root.
+"""Build references/catalog.md: publicly installable skills from the five software-development packs.
 
 A skill is kept only when it resolves to a public GitHub source, either through a
-skills-lock.json entry or because it lives in a public clone (9_Github/* or
-bluecapone-skills). Everything else is dropped, which keeps private and work
-skills out of the committed catalog. Each `npx skills` install command is then
-checked against `npx skills add <source> --list`, so stale or broken entries drop.
+skills-lock.json entry or because it lives in a public clone (9_Github/*).
+Everything else is dropped, which keeps private and work skills out of the
+committed catalog. Only packs in ALLOWED_PACKS are kept. Each `npx skills`
+install command is then checked against `npx skills add <source> --list`, so
+stale or broken entries drop.
 """
 import argparse
 import datetime
@@ -23,15 +24,12 @@ from pathlib import Path
 PRUNE = {"node_modules", ".git", ".venv", "venv", "dist", "build", "__pycache__", ".worktrees"}
 SKIP_COMPONENTS = {"test", "tests", "fixtures", "vendor"}
 PUBLIC_CLONE_PREFIX = "9_Github"
-PUBLIC_SELF = "5_Personal/bluecapone-skills"
-SELF_SOURCE = "bluecapone/bluecapone-skills"
 
 PACK_LABELS = {
     "mattpocock/skills": "Matt Pocock",
     "addyosmani/agent-skills": "Addy Osmani",
     "garrytan/gstack": "gstack (Garry Tan)",
     "obra/superpowers": "superpowers (obra)",
-    "bluecapone/bluecapone-skills": "bluecapone",
 }
 
 # Pack-level install commands that replace the per-skill `npx skills add` form.
@@ -39,6 +37,9 @@ INSTALL_OVERRIDES = {
     "garrytan/gstack": "git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup",
     "obra/superpowers": "/plugin install superpowers@claude-plugins-official",
 }
+
+# what-skill covers only these software-development packs; find-skills handles everything else.
+ALLOWED_PACKS = {"Matt Pocock", "Addy Osmani", "cursor/plugins: pstack", "gstack (Garry Tan)", "superpowers (obra)"}
 
 CATEGORY_RULES = [
     ("Principles", r"^principle-"),
@@ -60,7 +61,6 @@ CATEGORY_ORDER = [c for c, _ in CATEGORY_RULES] + ["Other"]
 # "<source>:<name>" -> category, for rows the regex rules misfile.
 CATEGORY_OVERRIDES: dict[str, str] = {
     "mattpocock/skills:wizard": "Agent workflow & meta",
-    "cursor/plugins:thermos": "Code review & quality",
     "cursor/plugins:interrogate": "Code review & quality",
     "addyosmani/agent-skills:doubt-driven-development": "Code review & quality",
     "addyosmani/agent-skills:performance-optimization": "Debugging",
@@ -68,34 +68,16 @@ CATEGORY_OVERRIDES: dict[str, str] = {
     "addyosmani/agent-skills:source-driven-development": "Research & web",
     "mattpocock/skills:improve-codebase-architecture": "Architecture & design",
     "mattpocock/skills:scaffold-exercises": "Docs & writing",
-    "cursor/plugins:build-figma": "Architecture & design",
     "cursor/plugins:statechart": "Architecture & design",
-    "cursor/plugins:cli-for-agents": "Architecture & design",
     "cursor/plugins:figure-it-out": "Planning & requirements",
     "cursor/plugins:show-me-your-work": "Agent workflow & meta",
-    "cursor/plugins:weekly-review": "Git, PR & CI",
-    "cursor/plugins:control-ui": "Testing & verification",
-    "cursor/plugins:check-compiler-errors": "Testing & verification",
     "cursor/plugins:arena": "Agent workflow & meta",
-    "cursor/plugins:continual-learning": "Agent workflow & meta",
     "cursor/plugins:sharpen": "Agent workflow & meta",
-    "cursor/plugins:workflow-from-chats": "Agent workflow & meta",
-    "cursor/plugins:google-docs": "Integrations & tools",
-    "cursor/plugins:X MCP guide": "Integrations & tools",
-    "cursor/plugins:add-dictation": "Integrations & tools",
-    "cursor/plugins:add-read-aloud": "Integrations & tools",
-    "cursor/plugins:tailscale-setup": "Integrations & tools",
     "garrytan/gstack:make-pdf": "Docs & writing",
     "garrytan/gstack:gstack-upgrade": "Agent workflow & meta",
     "garrytan/gstack:captain": "Agent workflow & meta",
     "garrytan/gstack:learn": "Agent workflow & meta",
     "obra/superpowers:writing-skills": "Agent workflow & meta",
-    "JuliusBrussee/caveman:caveman-learn": "Agent workflow & meta",
-    "JuliusBrussee/caveman:migration": "Architecture & design",
-    "bluecapone/bluecapone-skills:super-productivity": "Integrations & tools",
-    "herdrdev/herdr:herdr": "Integrations & tools",
-    "herdrdev/herdr:herdr-throwaway-repro": "Integrations & tools",
-    "herdrdev/herdr:triage": "Planning & requirements",
     "garrytan/gstack:open-gstack-browser": "Integrations & tools",
     "garrytan/gstack:browse": "Integrations & tools",
     "garrytan/gstack:setup-browser-cookies": "Integrations & tools",
@@ -209,7 +191,7 @@ _origin_cache = {}
 
 def public_clone_source(repo, root):
     rel = repo.relative_to(root).as_posix()
-    if not (rel.startswith(PUBLIC_CLONE_PREFIX + "/") or rel == PUBLIC_SELF):
+    if not rel.startswith(PUBLIC_CLONE_PREFIX + "/"):
         return None
     if repo not in _origin_cache:
         r = subprocess.run(["git", "-C", str(repo), "remote", "get-url", "origin"], capture_output=True, text=True)
@@ -301,6 +283,7 @@ def main():
 
     candidates = {}  # (source, name) -> list of (rank tuple, entry)
     dropped = 0
+    out_of_scope = 0
     for path in walk_skills(root):
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
@@ -328,6 +311,9 @@ def main():
         if not source:
             dropped += 1
             continue
+        if pack_label(source, rel_parts) not in ALLOWED_PACKS:
+            out_of_scope += 1
+            continue
         hidden = any(p.startswith(".") for p in (path.parent.relative_to(repo).parts if repo else path.parts))
         rank = (0 if via_clone else 1, 1 if hidden else 0, len(str(path)))
         entry = {"source": source, "name": name, "description": description, "rel_parts": rel_parts}
@@ -342,10 +328,8 @@ def main():
         if not public[source]:
             dropped += len(cands)
 
-    # Ask the installer itself which skills each npx source exposes, so every
-    # printed command works. The repo this script ships in is trusted as-is:
-    # its unpushed skills are not on GitHub yet.
-    npx_sources = sorted(s for s, ok in public.items() if ok and s not in INSTALL_OVERRIDES and s != SELF_SOURCE)
+    # Ask the installer itself which skills each npx source exposes, so every printed command works.
+    npx_sources = sorted(s for s, ok in public.items() if ok and s not in INSTALL_OVERRIDES)
     with ThreadPoolExecutor(8) as pool:
         listings = {s: (shallow, deep) for s, shallow, deep in pool.map(npx_listing, npx_sources)}
 
@@ -391,7 +375,7 @@ def main():
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text("\n".join(out) + "\n", encoding="utf-8")
-    print(f"wrote {out_path}: {len(rows)} skills, {len(sources)} sources, {dropped} dropped (private/unresolved)")
+    print(f"wrote {out_path}: {len(rows)} skills, {len(sources)} sources, {dropped} dropped (private/unresolved), {out_of_scope} outside the five packs")
 
 
 if __name__ == "__main__":

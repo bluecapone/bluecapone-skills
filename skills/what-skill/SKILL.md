@@ -1,22 +1,22 @@
 ---
 name: what-skill
-description: Recommend which agent skill to use for a task and give the exact command to install it. Use when the user asks "which skill should I use", "is there a skill for X", wants to compare skill packs (Matt Pocock skills, Addy Osmani agent-skills, pstack, gstack, superpowers), or wants install instructions for a skill.
+description: Recommend which skill from the five software-development packs (Matt Pocock skills, Addy Osmani agent-skills, pstack, gstack, superpowers) fits a coding task, and give the exact install command. Use for planning, TDD, debugging, code review, architecture or shipping skills, or to compare those packs. For any skill outside these five packs, use find-skills instead.
 ---
 
 # what-skill
 
-Match a task to the agent skill that fits it best, then give the exact command to install that skill.
+Match a software-development task to the best skill from five packs (Pocock, Osmani, pstack, gstack, superpowers), then give the exact command to install it. Anything outside these packs belongs to the find-skills skill (`npx skills find <query>`), not this one.
 
 `$SKILL_DIR` is the directory containing this `SKILL.md`. It ships two references:
 
-- `$SKILL_DIR/references/catalog.md`: every publicly installable skill the catalog script found, grouped by category, with pack, a one-line description and the install command.
+- `$SKILL_DIR/references/catalog.md`: every publicly installable skill from the five packs, grouped by category, with pack, a one-line description and the install command.
 - `$SKILL_DIR/references/packs.md`: a cited comparison of the big packs (Pocock, Osmani, pstack, gstack, superpowers): what each believes in, verbatim install commands, what the comparison videos found, and an overlap map (section 6).
 
 ## Workflow
 
-1. Restate the user's job in one line and map it to one catalog category (for example `Planning & requirements`, `Debugging`, `Testing & verification`).
+1. Restate the user's job in one line and map it to one catalog category (for example `Planning & requirements`, `Debugging`, `Testing & verification`). If the job is not software development, stop and use the find-skills skill instead.
 2. Check the **Pack picker** below and the overlap map (section 6) in `$SKILL_DIR/references/packs.md`.
-3. Search the catalog for the job's keywords (shell `grep` or your agent's search tool), starting with the mapped `## <Category>` section:
+3. Search the catalog for the job's keywords (shell `grep` or your agent's search tool), starting with the mapped `## <Category>` section. If no catalog row fits, say so and hand off to the find-skills skill; do not recommend skills from other sources.
 
    ```bash
    grep -i -E 'tdd|test-driven' "$SKILL_DIR/references/catalog.md"
@@ -56,4 +56,4 @@ Video IDs (V1–V5) and README sources are listed in `packs.md` section 1.
 python3 "$SKILL_DIR/scripts/build-catalog.py" --root <dir with your clones>
 ```
 
-`--root` is the directory that holds your skill repo clones (it can also come from the `SKILLS_ROOT` environment variable). The script rescans it for `SKILL.md` files and rewrites `references/catalog.md`. It keeps only skills it can trace to a public GitHub repo. It needs network access to confirm each source is public, and it exits with code 2 rather than write a partial catalog. It is only useful on a machine that has the clones. If the date on the catalog's `Generated … on` line is more than 30 days old and the root exists, offer to rerun it.
+`--root` is the directory that holds your skill repo clones (it can also come from the `SKILLS_ROOT` environment variable). The script rescans it for `SKILL.md` files and rewrites `references/catalog.md`. It keeps only skills it can trace to a public GitHub repo. It needs network access to confirm each source is public, and it exits with code 2 rather than write a partial catalog. It is only useful on a machine that has the clones. If the date on the catalog's `Generated … on` line is more than 30 days old and the root exists, offer to rerun it. It keeps only the five packs listed in `ALLOWED_PACKS`.
