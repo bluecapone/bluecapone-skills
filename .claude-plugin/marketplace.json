@@ -27,6 +27,14 @@
       "strict": false,
       "skills": ["./skills/what-skill"],
       "category": "productivity"
+    },
+    {
+      "name": "hybrid-dev-skills",
+      "description": "Hybrid Pocock + pstack development flow: installer for the exact skill set, and /using-hybrid-dev, a router that names the next skill to run.",
+      "source": "./",
+      "strict": false,
+      "skills": ["./skills/hybrid-dev-skills", "./skills/using-hybrid-dev"],
+      "category": "development"
     }
   ]
 }
