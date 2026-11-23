@@ -12,7 +12,7 @@ npx skills add bluecapone/bluecapone-skills                        # all skills
 npx skills add bluecapone/bluecapone-skills -s nlm-research        # one skill
 npx skills add bluecapone/bluecapone-skills -s super-productivity
 npx skills add bluecapone/bluecapone-skills -s what-skill
-npx skills add bluecapone/bluecapone-skills -s hybrid-dev-skills -s using-hybrid-dev
+npx skills add bluecapone/bluecapone-skills -s hybrid-dev-setup -s using-hybrid-dev
 ```
 
 `npx skills` only copies/symlinks each skill's files (`SKILL.md` + scripts)
@@ -118,16 +118,17 @@ clones, and network access (each source is checked to be public on GitHub).
 
 A hybrid development flow over two upstream packs: Matt Pocock skills own
 decisions, spec, tickets, TDD, debugging and review; pstack `/poteto-mode`
-builds each ticket. `hybrid-dev-skills` names the owner of each stage and
-installs the exact skill set; `/using-hybrid-dev` is a user-invoked router
+builds each ticket. The `hybrid-dev-skills` pack holds two skills:
+`hybrid-dev-setup` names the owner of each stage and installs the exact skill
+set; `/using-hybrid-dev` is a user-invoked router
 (like Pocock's `/ask-matt`) that reads repo state and names the one next skill
 to run.
 
-- [`skills/hybrid-dev-skills/SKILL.md`](skills/hybrid-dev-skills/SKILL.md): stage owners and the `/implement-spec` kickoff
-- [`skills/hybrid-dev-skills/scripts/install.sh`](skills/hybrid-dev-skills/scripts/install.sh): installs 19 Pocock + 40 pstack skills, removes overlapping ones, keeps Pocock `tdd`
-- [`skills/using-hybrid-dev/SKILL.md`](skills/using-hybrid-dev/SKILL.md): the next-skill router
+- [`skills/hybrid-dev-skills/hybrid-dev-setup/SKILL.md`](skills/hybrid-dev-skills/hybrid-dev-setup/SKILL.md): stage owners and the `/implement-spec` kickoff
+- [`skills/hybrid-dev-skills/hybrid-dev-setup/scripts/install.sh`](skills/hybrid-dev-skills/hybrid-dev-setup/scripts/install.sh): installs 19 Pocock + 40 pstack skills, removes overlapping ones, keeps Pocock `tdd`
+- [`skills/hybrid-dev-skills/using-hybrid-dev/SKILL.md`](skills/hybrid-dev-skills/using-hybrid-dev/SKILL.md): the next-skill router
 
-Setup: run `bash skills/hybrid-dev-skills/scripts/install.sh` (from wherever
+Setup: run `bash <hybrid-dev-setup dir>/scripts/install.sh` (from wherever
 the skill is installed) in the target repo root. It needs `node`/`npx` and
 GitHub access. Installing the Claude Code plugin alone does not install the
 upstream Pocock and pstack skills.

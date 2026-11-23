@@ -5,14 +5,14 @@
 #   2. description: non-empty, <=1024 chars.
 #
 # Usage: scripts/lint-skill.sh [path/to/SKILL.md ...]
-# Defaults to every skills/*/SKILL.md in the repo. Exits non-zero on any violation.
+# Defaults to every SKILL.md under skills/ (skills/<name>/ or skills/<pack>/<name>/).
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FILES=("$@")
 if [ ${#FILES[@]} -eq 0 ]; then
-  mapfile -t FILES < <(find "$REPO_ROOT/skills" -mindepth 2 -maxdepth 2 -name SKILL.md)
+  mapfile -t FILES < <(find "$REPO_ROOT/skills" -mindepth 2 -maxdepth 3 -name SKILL.md)
 fi
 
 fail=0

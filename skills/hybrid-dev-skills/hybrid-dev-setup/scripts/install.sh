@@ -37,7 +37,7 @@ PSTACK=(
   principle-test-behavior-not-implementation principle-type-system-discipline
 )
 
-BLUECAPONE=(hybrid-dev-skills using-hybrid-dev)
+BLUECAPONE=(hybrid-dev-setup using-hybrid-dev)
 
 add() {
   local source="$1"; shift

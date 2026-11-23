@@ -8,7 +8,7 @@ disable-model-invocation: true
 
 Every run ends with exactly one next command for the user. Do not run that command yourself, and do not change any file.
 
-Before you name a skill, check that `.agents/skills/<name>/SKILL.md` or `.claude/skills/<name>/SKILL.md` exists. If it does not, the next command is the `hybrid-dev-skills` install script: `bash <path to hybrid-dev-skills>/scripts/install.sh`.
+Before you name a skill, check that `.agents/skills/<name>/SKILL.md` or `.claude/skills/<name>/SKILL.md` exists. If it does not, the next command is the `hybrid-dev-setup` install script: `bash <path to hybrid-dev-setup>/scripts/install.sh`.
 
 ## 1. Read the state
 

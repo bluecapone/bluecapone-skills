@@ -1,6 +1,6 @@
 ---
-name: hybrid-dev-skills
-description: Install and explain the hybrid Pocock + pstack development skill set - Matt Pocock skills own decisions, spec, tickets, TDD, debugging and review; pstack /poteto-mode owns how each ticket is built. Use when setting up a repo for this flow, or asking which pack owns a stage. For the next step in a repo that already has the set, run /using-hybrid-dev.
+name: hybrid-dev-setup
+description: Install and explain the hybrid Pocock + pstack development skill set (pack hybrid-dev-skills) - Matt Pocock skills own decisions, spec, tickets, TDD, debugging and review; pstack /poteto-mode owns how each ticket is built. Use when setting up a repo for this flow, or asking which pack owns a stage. For the next step in a repo that already has the set, run /using-hybrid-dev.
 ---
 
 # Hybrid dev skills

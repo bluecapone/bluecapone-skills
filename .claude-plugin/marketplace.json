@@ -33,7 +33,7 @@
       "description": "Hybrid Pocock + pstack development flow: installer for the exact skill set, and /using-hybrid-dev, a router that names the next skill to run.",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/hybrid-dev-skills", "./skills/using-hybrid-dev"],
+      "skills": ["./skills/hybrid-dev-skills/hybrid-dev-setup", "./skills/hybrid-dev-skills/using-hybrid-dev"],
       "category": "development"
     }
   ]
