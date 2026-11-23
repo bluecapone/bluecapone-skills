@@ -26,9 +26,21 @@ The script:
    - Osmani: `test-driven-development`, `code-review-and-quality`, `debugging-and-error-recovery`, `spec-driven-development`, `planning-and-task-breakdown`, `incremental-implementation`, `using-agent-skills`.
    - Pocock: `implement`, `improve-codebase-architecture`, `triage`, `pr`, `teach`, `handoff`, `to-questionnaire`, `writing-for-agents`.
 2. Installs 19 Pocock skills and 40 pstack skills, plus `using-hybrid-dev` and this skill, into `.agents/skills/` with `--copy`.
-3. Checks that `tdd` comes from `mattpocock/skills`. pstack `tdd` and `teach` have the same names as the Pocock skills, and installing them overwrites the Pocock versions without any warning, so the script never installs them.
+3. Checks that every skill comes from its original repo: Pocock skills from `mattpocock/skills`, pstack skills from `cursor/plugins`, and the two hybrid skills from `bluecapone/bluecapone-skills`. pstack `tdd` and `teach` have the same names as the Pocock skills, and installing them overwrites the Pocock versions without any warning, so the script never installs them.
 
 Then run `/setup-matt-pocock-skills` once, so the repo has an issue tracker config.
+
+## Update
+
+`npx skills update` fetches each skill from the repo recorded for it in `skills-lock.json` (`source` and `skillPath`). Pocock skills update from `mattpocock/skills` and pstack skills from `cursor/plugins`. This repo holds no copies of them. Run the update through the script, so the sources are checked afterwards:
+
+```bash
+bash "$SKILL_DIR/scripts/install.sh" --update
+```
+
+It runs `npx skills update -p -y`, then the same source check as the install. A `wrong source:` line means a lock entry points at another repo. Remove that skill, then run the script with no argument.
+
+`update` refreshes only the skills that are already installed. When upstream adds or renames a skill in the set, first update this skill (`npx skills update hybrid-dev-setup`) to get the new lists, then run `install.sh` with no argument.
 
 ## Stage owners
 

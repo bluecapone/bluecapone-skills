@@ -133,6 +133,11 @@ the skill is installed) in the target repo root. It needs `node`/`npx` and
 GitHub access. Installing the Claude Code plugin alone does not install the
 upstream Pocock and pstack skills.
 
+Update: run `bash <hybrid-dev-setup dir>/scripts/install.sh --update`. It runs
+`npx skills update -p -y`, which fetches each Pocock and pstack skill from its
+original repo (the `source` in `skills-lock.json`), then checks that every
+skill still comes from that repo.
+
 ## Quality checks
 
 ```bash

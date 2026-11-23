@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# install.sh - install the hybrid Pocock + pstack skill set into the current repo.
+# install.sh - install or update the hybrid Pocock + pstack skill set in the current repo.
+# Usage: install.sh            install (remove overlapping skills, add the set, check sources)
+#        install.sh --update   npx skills update -p -y, then check sources
 # Run from the target repo root. Needs node/npx and network access to GitHub.
 set -euo pipefail
 
@@ -46,31 +48,56 @@ add() {
   "${SKILLS[@]}" add "$source" -a codex --copy -y "${args[@]}"
 }
 
-present=()
-for n in "${REMOVE[@]}"; do
-  if [ -e ".agents/skills/$n" ] || [ -L ".claude/skills/$n" ]; then
-    present+=("$n")
-  fi
-done
-if [ "${#present[@]}" -gt 0 ]; then
-  echo "Removing: ${present[*]}"
-  "${SKILLS[@]}" remove "${present[@]}" -y
-fi
-
-add mattpocock/skills "${POCOCK[@]}"
-add cursor/plugins "${PSTACK[@]}"
-add bluecapone/bluecapone-skills "${BLUECAPONE[@]}"
-
-node - "${#PSTACK[@]}" <<'EOF'
+check_sources() {
+  node - "${POCOCK[*]}" "${PSTACK[*]}" "${BLUECAPONE[*]}" <<'EOF'
 const fs = require("fs");
-const want = Number(process.argv[2]);
+const [pocock, pstack, bluecapone] = process.argv.slice(2).map((s) => s.split(" "));
 const lock = JSON.parse(fs.readFileSync("skills-lock.json", "utf8")).skills;
-const pstack = Object.values(lock).filter((s) => s.source === "cursor/plugins").length;
-const tdd = lock.tdd && lock.tdd.source;
+const want = [
+  ["mattpocock/skills", pocock],
+  ["cursor/plugins", pstack],
+  ["bluecapone/bluecapone-skills", bluecapone],
+];
+let bad = false;
+for (const [source, names] of want) {
+  const wrong = names.filter((n) => !lock[n] || lock[n].source !== source);
+  console.log(`${source}: ${names.length - wrong.length}/${names.length}`);
+  for (const n of wrong) {
+    console.log(`  wrong source: ${n} -> ${lock[n] ? lock[n].source : "not in skills-lock.json"}`);
+    bad = true;
+  }
+}
 const teach = fs.existsSync(".agents/skills/teach");
-console.log(`pstack skills: ${pstack} (want ${want})`);
-console.log(`tdd source: ${tdd}`);
 console.log(`teach installed: ${teach}`);
-if (pstack !== want || tdd !== "mattpocock/skills" || teach) process.exit(1);
+if (bad || teach) process.exit(1);
 EOF
-echo "OK. Next: run /setup-matt-pocock-skills once, then /using-hybrid-dev."
+}
+
+case "${1:-}" in
+  "")
+    present=()
+    for n in "${REMOVE[@]}"; do
+      if [ -e ".agents/skills/$n" ] || [ -L ".claude/skills/$n" ]; then
+        present+=("$n")
+      fi
+    done
+    if [ "${#present[@]}" -gt 0 ]; then
+      echo "Removing: ${present[*]}"
+      "${SKILLS[@]}" remove "${present[@]}" -y
+    fi
+    add mattpocock/skills "${POCOCK[@]}"
+    add cursor/plugins "${PSTACK[@]}"
+    add bluecapone/bluecapone-skills "${BLUECAPONE[@]}"
+    check_sources
+    echo "OK. Next: run /setup-matt-pocock-skills once, then /using-hybrid-dev."
+    ;;
+  --update)
+    "${SKILLS[@]}" update -p -y
+    check_sources
+    echo "OK. Updated from the original repos."
+    ;;
+  *)
+    echo "usage: install.sh [--update]" >&2
+    exit 2
+    ;;
+esac
