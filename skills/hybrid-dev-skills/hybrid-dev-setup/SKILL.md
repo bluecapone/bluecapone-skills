@@ -30,7 +30,7 @@ It needs `node`/`npx`, the `claude` CLI and GitHub access. The script:
 2. Installs 12 Pocock skills (`ask-matt`, `setup-matt-pocock-skills`, `wayfinder`, `grill-with-docs`, `grill-me`, `grilling`, `domain-modeling`, `codebase-design`, `to-spec`, `to-tickets`, `research`, `prototype`) plus `hybrid-dev-setup` and `implement-spec`, with `npx skills add -a claude-code`.
 3. Installs and enables the pstack plugin at project scope (`claude plugin install pstack@cursor-plugins -s project`), adding the `cursor/plugins` marketplace first if needed.
 4. Overwrites `~/.claude/rules/pstack-models.md`: every pstack role runs on `opus medium` or `sonnet medium`. This file is global and affects every repo.
-5. Checks the skill sources, that no removed skill is left, and that `.claude/settings.json` enables the plugin.
+5. Checks the skill sources, and that `.claude/settings.json` enables the plugin. It fails on any skill in `.claude/skills/` or `.agents/skills/` that is not in the set; list a repo's own skills, one name per line, in `.claude/hybrid-dev-allow`. It only warns about removed skills found in the global `~/.claude/skills` or `~/.agents/skills`, because those belong to your dotfiles.
 
 Then run `/setup-matt-pocock-skills` once, so the repo has an issue tracker config.
 

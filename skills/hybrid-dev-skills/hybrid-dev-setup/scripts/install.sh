@@ -106,12 +106,24 @@ for (const [source, names] of [["mattpocock/skills", pocock], ["bluecapone/bluec
 }
 const old = Object.keys(lock).filter((n) => lock[n].source === "cursor/plugins");
 console.log(`npx pstack copies: ${old.length ? old.join(" ") : "none"}`);
-const left = remove.filter((n) => [".agents/skills/", ".claude/skills/"].some((d) => fs.existsSync(d + n)));
-console.log(`removed skills left: ${left.length ? left.join(" ") : "none"}`);
+// Every repo skill must be in the set or in the repo's allow list (.claude/hybrid-dev-allow,
+// one skill name per line, # comments).
+let allow = [];
+try {
+  allow = fs.readFileSync(".claude/hybrid-dev-allow", "utf8").split("\n").map((l) => l.replace(/#.*/, "").trim()).filter(Boolean);
+} catch {}
+const expected = new Set([...pocock, ...bluecapone, ...allow]);
+const dirs = (d) => (fs.existsSync(d) ? fs.readdirSync(d) : []);
+const extra = [...new Set([...dirs(".agents/skills"), ...dirs(".claude/skills")])].filter((n) => !expected.has(n));
+console.log(`skills not in the set or .claude/hybrid-dev-allow: ${extra.length ? extra.join(" ") : "none"}`);
+// Global skills load in every repo but belong to the user's dotfiles: warn only.
+const home = require("os").homedir();
+const global = remove.filter((n) => [`${home}/.agents/skills/`, `${home}/.claude/skills/`].some((d) => fs.existsSync(d + n)));
+if (global.length) console.log(`warning: global skills this set removes (remove them from ~/.claude/skills yourself): ${global.join(" ")}`);
 let enabled = false;
 try { enabled = JSON.parse(fs.readFileSync(".claude/settings.json", "utf8")).enabledPlugins?.[process.env.PLUGIN] === true; } catch {}
 console.log(`${process.env.PLUGIN} enabled in .claude/settings.json: ${enabled}`);
-if (bad || old.length || left.length || !enabled) process.exit(1);
+if (bad || old.length || extra.length || !enabled) process.exit(1);
 EOF
 }
 
