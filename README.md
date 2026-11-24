@@ -12,7 +12,7 @@ npx skills add bluecapone/bluecapone-skills                        # all skills
 npx skills add bluecapone/bluecapone-skills -s nlm-research        # one skill
 npx skills add bluecapone/bluecapone-skills -s super-productivity
 npx skills add bluecapone/bluecapone-skills -s what-skill
-npx skills add bluecapone/bluecapone-skills -s hybrid-dev-setup -s using-hybrid-dev
+npx skills add bluecapone/bluecapone-skills -s hybrid-dev-setup -s implement-spec
 ```
 
 `npx skills` only copies/symlinks each skill's files (`SKILL.md` + scripts)
@@ -117,26 +117,24 @@ clones, and network access (each source is checked to be public on GitHub).
 ### hybrid-dev-skills
 
 A hybrid development flow over two upstream packs: Matt Pocock skills own
-decisions, spec, tickets, TDD, debugging and review; pstack `/poteto-mode`
-builds each ticket. The `hybrid-dev-skills` pack holds two skills:
-`hybrid-dev-setup` names the owner of each stage and installs the exact skill
-set; `/using-hybrid-dev` is a user-invoked router
-(like Pocock's `/ask-matt`) that reads repo state and names the one next skill
-to run.
+ideas, spec and tickets; the pstack Claude Code plugin builds
+(`/pstack:poteto-mode`) and reviews (`/pstack:interrogate`). The
+`hybrid-dev-skills` pack holds two skills: `hybrid-dev-setup` names the owner
+of each stage and installs the setup; `/implement-spec` builds a spec's
+tickets, one poteto-mode implementer per ready ticket, in parallel.
 
-- [`skills/hybrid-dev-skills/hybrid-dev-setup/SKILL.md`](skills/hybrid-dev-skills/hybrid-dev-setup/SKILL.md): stage owners and the `/implement-spec` kickoff
-- [`skills/hybrid-dev-skills/hybrid-dev-setup/scripts/install.sh`](skills/hybrid-dev-skills/hybrid-dev-setup/scripts/install.sh): installs 19 Pocock + 40 pstack skills, removes overlapping ones, keeps Pocock `tdd`
-- [`skills/hybrid-dev-skills/using-hybrid-dev/SKILL.md`](skills/hybrid-dev-skills/using-hybrid-dev/SKILL.md): the next-skill router
+- [`skills/hybrid-dev-skills/hybrid-dev-setup/SKILL.md`](skills/hybrid-dev-skills/hybrid-dev-setup/SKILL.md): stage owners and known gaps
+- [`skills/hybrid-dev-skills/hybrid-dev-setup/scripts/install.sh`](skills/hybrid-dev-skills/hybrid-dev-setup/scripts/install.sh): installs 12 Pocock skills (planning plus ask-matt) and the pstack plugin, removes the rest, overwrites the global `~/.claude/rules/pstack-models.md` (opus/sonnet medium)
+- [`skills/hybrid-dev-skills/implement-spec/SKILL.md`](skills/hybrid-dev-skills/implement-spec/SKILL.md): parallel per-ticket implementers, then interrogate
 
 Setup: run `bash <hybrid-dev-setup dir>/scripts/install.sh` (from wherever
-the skill is installed) in the target repo root. It needs `node`/`npx` and
-GitHub access. Installing the Claude Code plugin alone does not install the
-upstream Pocock and pstack skills.
+the skill is installed) in the target repo root. It needs `node`/`npx`, the
+`claude` CLI and GitHub access. Installing the Claude Code plugin alone does
+not install the upstream Pocock skills or the pstack plugin.
 
 Update: run `bash <hybrid-dev-setup dir>/scripts/install.sh --update`. It runs
-`npx skills update -p -y`, which fetches each Pocock and pstack skill from its
-original repo (the `source` in `skills-lock.json`), then checks that every
-skill still comes from that repo.
+`npx skills update -p -y` and `claude plugin update pstack@cursor-plugins -s
+project`, rewrites the model rule, then checks every skill's source.
 
 ## Quality checks
 

@@ -1,65 +1,102 @@
 #!/usr/bin/env bash
-# install.sh - install or update the hybrid Pocock + pstack skill set in the current repo.
-# Usage: install.sh            install (remove overlapping skills, add the set, check sources)
-#        install.sh --update   npx skills update -p -y, then check sources
-# Run from the target repo root. Needs node/npx and network access to GitHub.
+# install.sh - install or update the hybrid Pocock + pstack setup in the current repo.
+# Usage: install.sh            remove old skills, add Pocock + bluecapone skills, install the
+#                              pstack Claude Code plugin (project scope), write the model rule, check
+#        install.sh --update   npx skills update -p -y, claude plugin update, write the rule, check
+# Run from the target repo root. Needs node/npx, the claude CLI and network access to GitHub.
+# Always overwrites ~/.claude/rules/pstack-models.md (global: affects every repo).
 set -euo pipefail
 
 SKILLS=(npx -y skills@latest)
+PLUGIN=pstack@cursor-plugins
+RULE="$HOME/.claude/rules/pstack-models.md"
 
 REMOVE=(
   test-driven-development code-review-and-quality debugging-and-error-recovery
   spec-driven-development planning-and-task-breakdown incremental-implementation
   using-agent-skills
-  implement improve-codebase-architecture triage pr teach handoff to-questionnaire
-  writing-for-agents
+  code-review diagnosing-bugs implement improve-codebase-architecture pr retro tdd
+  teach triage handoff to-questionnaire writing-for-agents wait-what wizard
+  using-hybrid-dev
 )
 
 POCOCK=(
-  ask-matt code-review codebase-design diagnosing-bugs domain-modeling grill-me
-  grill-with-docs grilling implement-spec prototype research retro
-  setup-matt-pocock-skills tdd to-spec to-tickets wait-what wayfinder wizard
+  ask-matt setup-matt-pocock-skills wayfinder grill-with-docs grill-me grilling
+  domain-modeling codebase-design to-spec to-tickets research prototype
 )
 
-PSTACK=(
-  poteto-mode architect arena benchmark-checklist figure-it-out how why interrogate
-  ketchup no-comments show-me-your-work swarm technical-writing unslop
-  create-verification-skill typescript-best-practices
-  principle-attack-the-premise principle-boundary-discipline principle-build-the-lever
-  principle-encode-lessons-in-structure principle-exhaust-the-design-space
-  principle-experience-first principle-explain-the-number principle-fix-root-causes
-  principle-foundational-thinking principle-guard-the-context-window
-  principle-laziness-protocol principle-make-operations-idempotent
-  principle-migrate-callers-then-delete-legacy-apis principle-minimize-reader-load
-  principle-model-the-domain principle-never-block-on-the-human
-  principle-outcome-oriented-execution principle-prove-it-works
-  principle-redesign-from-first-principles
-  principle-separate-before-serializing-shared-state
-  principle-sequence-verifiable-units principle-subtract-before-you-add
-  principle-test-behavior-not-implementation principle-type-system-discipline
-)
-
-BLUECAPONE=(hybrid-dev-setup using-hybrid-dev)
+BLUECAPONE=(hybrid-dev-setup implement-spec)
 
 add() {
   local source="$1"; shift
   local args=()
   for n in "$@"; do args+=(--skill "$n"); done
-  "${SKILLS[@]}" add "$source" -a codex --copy -y "${args[@]}"
+  "${SKILLS[@]}" add "$source" -a claude-code -y "${args[@]}"
 }
 
-check_sources() {
-  node - "${POCOCK[*]}" "${PSTACK[*]}" "${BLUECAPONE[*]}" <<'EOF'
+remove_old() {
+  local present=()
+  for n in "${REMOVE[@]}"; do
+    if [ -e ".agents/skills/$n" ] || [ -e ".claude/skills/$n" ] || [ -L ".claude/skills/$n" ]; then
+      present+=("$n")
+    fi
+  done
+  # Old npx copies of pstack skills: every lock entry from cursor/plugins.
+  if [ -f skills-lock.json ]; then
+    while IFS= read -r n; do [ -n "$n" ] && present+=("$n"); done < <(node -e '
+      const l = JSON.parse(require("fs").readFileSync("skills-lock.json", "utf8")).skills || {};
+      for (const [n, e] of Object.entries(l)) if (e.source === "cursor/plugins") console.log(n);')
+  fi
+  if [ "${#present[@]}" -gt 0 ]; then
+    echo "Removing: ${present[*]}"
+    "${SKILLS[@]}" remove "${present[@]}" -y
+  fi
+}
+
+pstack_plugin() {
+  if ! claude plugin marketplace list --json | node -e '
+    const m = JSON.parse(require("fs").readFileSync(0, "utf8"));
+    process.exit(m.some((x) => x.name === "cursor-plugins") ? 0 : 1);'; then
+    claude plugin marketplace add cursor/plugins
+  fi
+  local state
+  state=$(claude plugin list --json | PLUGIN="$PLUGIN" node -e '
+    const p = JSON.parse(require("fs").readFileSync(0, "utf8")).find((x) =>
+      x.id === process.env.PLUGIN && x.scope === "project" && x.projectPath === process.cwd());
+    console.log(!p ? "missing" : p.enabled ? "enabled" : "disabled");')
+  case "$state" in
+    missing) claude plugin install "$PLUGIN" -s project ;;
+    disabled) claude plugin enable "$PLUGIN" -s project ;;
+  esac
+}
+
+write_rule() {
+  mkdir -p "$(dirname "$RULE")"
+  cat > "$RULE" <<'EOF'
+# pstack model configuration. One line per role. Delete a line to fall back to the skill default.
+# `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model` and spawn `generalPurpose`). Alias entries in a panel list still count toward its fan-out.
+# defaults: 3
+# budget: small (medium)
+feature, refactoring: opus medium
+bug-fix: opus medium
+perf-issue: opus medium
+hillclimb: opus medium
+judgment and prose: opus medium
+arena runners: opus medium, sonnet medium
+arena cross-judge pool: opus medium, sonnet medium
+swarm workers: sonnet medium
+interrogate reviewers: opus medium, sonnet medium
+EOF
+  echo "wrote $RULE"
+}
+
+check() {
+  PLUGIN="$PLUGIN" node - "${POCOCK[*]}" "${BLUECAPONE[*]}" "${REMOVE[*]}" <<'EOF'
 const fs = require("fs");
-const [pocock, pstack, bluecapone] = process.argv.slice(2).map((s) => s.split(" "));
+const [pocock, bluecapone, remove] = process.argv.slice(2).map((s) => s.split(" "));
 const lock = JSON.parse(fs.readFileSync("skills-lock.json", "utf8")).skills;
-const want = [
-  ["mattpocock/skills", pocock],
-  ["cursor/plugins", pstack],
-  ["bluecapone/bluecapone-skills", bluecapone],
-];
 let bad = false;
-for (const [source, names] of want) {
+for (const [source, names] of [["mattpocock/skills", pocock], ["bluecapone/bluecapone-skills", bluecapone]]) {
   const wrong = names.filter((n) => !lock[n] || lock[n].source !== source);
   console.log(`${source}: ${names.length - wrong.length}/${names.length}`);
   for (const n of wrong) {
@@ -67,33 +104,32 @@ for (const [source, names] of want) {
     bad = true;
   }
 }
-const teach = fs.existsSync(".agents/skills/teach");
-console.log(`teach installed: ${teach}`);
-if (bad || teach) process.exit(1);
+const old = Object.keys(lock).filter((n) => lock[n].source === "cursor/plugins");
+console.log(`npx pstack copies: ${old.length ? old.join(" ") : "none"}`);
+const left = remove.filter((n) => [".agents/skills/", ".claude/skills/"].some((d) => fs.existsSync(d + n)));
+console.log(`removed skills left: ${left.length ? left.join(" ") : "none"}`);
+let enabled = false;
+try { enabled = JSON.parse(fs.readFileSync(".claude/settings.json", "utf8")).enabledPlugins?.[process.env.PLUGIN] === true; } catch {}
+console.log(`${process.env.PLUGIN} enabled in .claude/settings.json: ${enabled}`);
+if (bad || old.length || left.length || !enabled) process.exit(1);
 EOF
 }
 
 case "${1:-}" in
   "")
-    present=()
-    for n in "${REMOVE[@]}"; do
-      if [ -e ".agents/skills/$n" ] || [ -L ".claude/skills/$n" ]; then
-        present+=("$n")
-      fi
-    done
-    if [ "${#present[@]}" -gt 0 ]; then
-      echo "Removing: ${present[*]}"
-      "${SKILLS[@]}" remove "${present[@]}" -y
-    fi
+    remove_old
     add mattpocock/skills "${POCOCK[@]}"
-    add cursor/plugins "${PSTACK[@]}"
     add bluecapone/bluecapone-skills "${BLUECAPONE[@]}"
-    check_sources
-    echo "OK. Next: run /setup-matt-pocock-skills once, then /using-hybrid-dev."
+    pstack_plugin
+    write_rule
+    check
+    echo "OK. Next: run /setup-matt-pocock-skills once, then /wayfinder or /to-spec."
     ;;
   --update)
     "${SKILLS[@]}" update -p -y
-    check_sources
+    claude plugin update "$PLUGIN" -s project
+    write_rule
+    check
     echo "OK. Updated from the original repos."
     ;;
   *)

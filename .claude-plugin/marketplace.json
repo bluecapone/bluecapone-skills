@@ -30,10 +30,10 @@
     },
     {
       "name": "hybrid-dev-skills",
-      "description": "Hybrid Pocock + pstack development flow: installer for the exact skill set, and /using-hybrid-dev, a router that names the next skill to run.",
+      "description": "Hybrid Pocock + pstack development flow: installer (Pocock planning skills, pstack plugin, model rule) and /implement-spec, which builds every ready ticket in parallel with /pstack:poteto-mode.",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/hybrid-dev-skills/hybrid-dev-setup", "./skills/hybrid-dev-skills/using-hybrid-dev"],
+      "skills": ["./skills/hybrid-dev-skills/hybrid-dev-setup", "./skills/hybrid-dev-skills/implement-spec"],
       "category": "development"
     }
   ]
